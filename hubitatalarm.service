@@ -1,0 +1,10 @@
+[Unit]
+Description=MQTT Alarm
+After=network-online.target
+
+[Service]
+ExecStart=/home/ccoupe/.hubitat/alarm/mqtt-alarm.sh
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target

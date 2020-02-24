@@ -1,0 +1,7 @@
+{
+  "mqtt_server_ip": "192.168.1.7",
+  "mqtt_port": 1883,
+  "mqtt_client_name": "bronco_play1",
+  "homie_device": "bronco_play",
+  "homie_name": "Bronco Mp3 Play"
+}

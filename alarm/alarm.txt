@@ -1,0 +1,67 @@
+done: uri encode - wrong
+done: notification error
+done: calling from Notification App as speaking device. Repeat is wrong?
+done: settings
+done: homie mqtt
+done: alarm.py
+done: groovy -> python 
+done: process url - use playsound - Ok on linux and OSX.
+done: background osx
+			https://stackoverflow.com/questions/29338066/mac-osx-execute-a-python-script-at-startup
+----> background linux
+----> status to mqtt while playing? $state = 'ready', 'busy'
+----> python mqtt issues
+      on_connect - nothing reporting but working 
+      on_subscribe - nothing reporting but working 
+      not retaining.
+----> queueing ?
+----> ability to pause existing players? 
+----> siren sounds 
+----> sync with Kevins MQTT for topic structure and protocol
+----> git and sync between mini and bronco and two ~/.hubitat/alarm/*
+      README
+----> could be installed on pi4
+
+Hubitat driver -> MQTT
+  ~/Projects/iot/hubitat/mqtt-alarm.groovy
+  Capability:
+      Allow notification https://docs.hubitat.com/index.php?title=Driver_Capability_List
+      Notification (text for tts) (v1)
+        deviceNotification(text)
+      Alarm (v2)
+            both()
+            off()
+            siren()
+            strobe()
+      Chime? (v2)
+      SpeechSynthesis (text for tss) (v1)
+        speak(text)
+        
+      deviceNotification(text) 
+        wraps emphasis=strong around text,
+        calls myspeak()
+        mqtt publish to 'play/url/set'
+      speak(text) 
+        calls myspeak()
+        mqtt publish to 'play/url/set'
+        
+Homie3 mapping V1
+
+  myspeak(text):
+    homie/bronco/player/$nodes -> 'url'
+    homie/bronco/player/url/set  -> url is property on node play
+        
+  
+  Alarm: (v2)     homie/bronco/alarm/sound/set  -> sound number is property of node alarm
+  Chime: (v2)     homie/bronco/chime/sound/set  -> sound number?
+        
+Linux/OSX alarms via mqtt
+  Settings - json - in ~/.iot/cjc/alarm.json
+  Startup by Window Manager login. 
+  pip3 install paho-mqtt
+  
+      Linux: subscribe to mqtt, get url from topics 
+        https://stackoverflow.com/questions/260738/play-audio-with-python:
+          from subprocess import call
+          call(["cvlc", "--play-and-exit", "myNotificationTone.mp3"])
+          cleanup files?

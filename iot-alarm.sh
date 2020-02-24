@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 cd /Users/ccoupe/.hubitat/alarm
 sleep 60
 /usr/sbin/ipconfig waitall

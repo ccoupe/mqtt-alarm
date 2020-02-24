@@ -64,7 +64,7 @@ class Homie_MQTT:
     self.client.publish("homie/"+hdevice+"/player/url/$retained", "true", mqos, True)
    # Done with structure. 
 
-    print("homeie topics created")
+    print("homie topics created")
     # nothing else to publish 
     
   def publish_structure(self, topic, payload):

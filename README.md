@@ -40,7 +40,7 @@ sudo -s
 mkdir -p /usr/local/share/hubitat/alarm
 cd  /usr/local/share/hubitat
 git clone https://github.com/ccoupe/mqtt-alarm.git
-cd mqtt-alarm/alarm
+cd mqtt-alarm
 ```
 Notice that everything belongs to root. Not ideal but we live with it.
 
@@ -56,6 +56,11 @@ It doesn't matter what they are as long as MQTT thinks they are unique. The `hom
 will be used when you install the groovy driver. Your alarm is a device it may have many 
 sub-devices or properties but it's a device to Hubitat and MQTT/Homie. The `homie_name` is just a 
 user friendly descriptive name. It's required by Homie but we don't use it. We do require it.
+#### python dependencies
+```sh
+pip3 install paho-mqtt
+pip3 install playsound
+```
 #### bronco.json
 {
   "mqtt_server_ip": "192.168.1.7",
@@ -74,32 +79,42 @@ user friendly descriptive name. It's required by Homie but we don't use it. We d
 }
 #### mqtt-alarm.sh 
 ```sh
-#/bin/bash
-cd /home/ccoupe/.hubitat/alarm
+#!/bin/bash
+cd /usr/local/share/hubitat/mqtt-alarm
 /usr/bin/python3 alarm.py -d2 -c bronco.json
 ```
 #### iot-alarm.sh
 ```sh 
-#/bin/bash
+#!/bin/bash
 cd /Users/ccoupe/.hubitat/alarm
 sleep 60
 /usr/sbin/ipconfig waitall
 echo "Network up?"
 /usr/local/bin/python3 alarm.py -d3 -c mini.json
 ```
+#### Quick Test
+we want to test our typing skills. `cd ../` and then 
+`./mqtt-alarm/mqtt-alarm.sh` or `./mqtt-alarm/iot-alarm.sh`
+you'll get some startup info and ending with `Subscribing:  0` and it waits
+for the MQTT server to send something. Control-C. It's working well enough
+for now. If you have MQTT-Explorer installed -  you should, then you can look
+at the MQTT structure you just created. 
+
+We know it runs. Now the hard part. get back to our files. `cd mqtt-alarm`
+
 #### Load the daemon
-There is no way around this. It's likely there is a mistake, somewhere. Finding
+There is no way around this. It's likely there ares mistake, somewhere. Finding
 the damn log files and figuring out what is wrong is not easy. 
 ##### systemd
-On Linux we copy the `hubitatalarm.service` file where systemd can find it. Then
-we tell systemd to enable it and to run it. First we need that file
+On Linux we copy the `hubitat-alarm.service` file where systemd can find it. Then
+we tell systemd to enable it and to run it. First we need that file hubitat-alarm.service:
 ```
 [Unit]
 Description=MQTT Alarm
 After=network-online.target
 
 [Service]
-ExecStart=/home/ccoupe/.hubitat/alarm/mqtt-alarm.sh
+ExecStart=/usr/local/share/hubitat/mqtt-alarm/mqtt-alarm.sh
 Restart=on-abort
 
 [Install]
@@ -108,11 +123,13 @@ WantedBy=multi-user.target
 Of cource you want to use the full path to where the script lives. So edit
 the file. Now copy to where systemd can find it.
 ```
-sudo cp hubitatalarm.service /etc/systemd/system
-sudo systemctl enable hubitatalarm
-sudo systemctl start hubitatalarm
+cp hubitat-alarm.service /etc/systemd/system
+systemctl enable hubitat-alarm
+systemctl start hubitat-alarm
 ```
-See if it is running. `ps ax | grep hubitat`. or journalctl,
+See if it is running. `ps ax | grep hubitat`. or use journalctl
+Not running?  
+
 ##### launchctl
 #### Hubitat Driver
 Install the groovy driver. 

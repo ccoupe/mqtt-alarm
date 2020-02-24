@@ -9,11 +9,13 @@ done: process url - use playsound - Ok on linux and OSX.
 done: background osx
 			https://stackoverflow.com/questions/29338066/mac-osx-execute-a-python-script-at-startup
 ----> background linux
+      need paho-mqtt in system's python3
 ----> status to mqtt while playing? $state = 'ready', 'busy'
 ----> python mqtt issues
       on_connect - nothing reporting but working 
       on_subscribe - nothing reporting but working 
       not retaining.
+----> handle disconnects/not available better 
 ----> queueing ?
 ----> ability to pause existing players? 
 ----> siren sounds 

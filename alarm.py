@@ -21,6 +21,7 @@ debug_level = 1
 use_syslog = False
 
 def playUrl(url):
+  global hmqtt
   #log(url)
   print("playUrl: ",url)
   if True:
@@ -29,10 +30,10 @@ def playUrl(url):
     except:
       print("Failed download")
     url = "tmp.mp3"
-  # synchronous playback, I believe.
-  hmqtt.set_state("busy");
+  #synchronous playback, I believe.
+  hmqtt.set_status("busy")
   playsound(url)
-  hmqtt.set_state("ready")
+  hmqtt.set_status("ready")
 
 def alarmUrl(url):
   log(url)

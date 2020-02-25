@@ -6,7 +6,7 @@
    <string>com.mvmanila.iot-alarm</string>
    <key>ProgramArguments</key>
    <array>
-	 <string>/Users/ccoupe/.hubitat/alarm/iot-alarm.sh</string>
+	 <string>/usr/local/share/hubitat/mqtt-alarm/iot-alarm.sh</string>
    </array>
    <key>StandardOutPath</key>
    <string>/var/log/iot-alarm.log</string>

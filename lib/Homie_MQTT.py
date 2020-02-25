@@ -109,5 +109,5 @@ class Homie_MQTT:
     log("mqtt reconnecting")
     self.client.reconnect()
       
-  def set_state(str):
-    mqtt.publish(self.state_pub, str)
+  def set_status(self, str):
+    self.client.publish(self.state_pub, str)

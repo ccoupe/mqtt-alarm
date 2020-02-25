@@ -1,9 +1,9 @@
-## Hubitat Alarm
-Hubitat Alarm is "device" on Linux and/or OSX that plays a TTS mp3 from
-Hubitat. It provides these capabilities: notification, speak and siren(in v2).
+## Hubitat MQTT Alarm
+MQTT Alarm is "device" on Linux and/or OSX that plays a TTS mp3 from
+Hubitat. It provides these capabilities: notification, speak.
 
-It makes the computer attached speakers available for hubitat to use for
-notications and speaking. It is not a media player in Hubitat or HomeAssistant terminolgy.
+It makes the computer attached speakers available for Hubitat to use for
+notifications and speaking. It is not a media player in Hubitat or HomeAssistant terminolgy.
 Note that the 'sound' is mixed into what ever is playing. This is not ideal but
 pausing all the media players that the user might be running is a formidable task
 (if it could be done - it would be 'muy pesky').
@@ -36,13 +36,13 @@ might be a better place.  Also be aware that it's really and MQTT device, not a 
 only device. Somethings the names of things don't match that concept. Maybe
 /usr/local/share/mqtt/alarm would be best? We're going to be sudo'd most of the time
 ```sh
-sudo -s
+sudo -sH
 mkdir -p /usr/local/share/hubitat/alarm
 cd  /usr/local/share/hubitat
 git clone https://github.com/ccoupe/mqtt-alarm.git
 cd mqtt-alarm
 ```
-Notice that everything belongs to root. Not ideal but we live with it.
+Notice that everything belongs to root. Not ideal but we live with it. Tha
 
 Do a `which python3` . Remember that location. Also remember the ip address 
 of your MQTT server. Mine is 192.168.1.7 so that's what you'll see down below.
@@ -61,6 +61,8 @@ user friendly descriptive name. It's required by Homie but we don't use it. We d
 pip3 install paho-mqtt
 pip3 install playsound
 ```
+Caution: You may have several python3 library locations. We want a python3
+that is available at boot time. The '-H' flag on sudo may be required. 
 #### bronco.json
 {
   "mqtt_server_ip": "192.168.1.7",
@@ -86,26 +88,28 @@ cd /usr/local/share/hubitat/mqtt-alarm
 #### iot-alarm.sh
 ```sh 
 #!/bin/bash
-cd /Users/ccoupe/.hubitat/alarm
+cd /usr/local/share/hubitat/mqtt-alarm
 sleep 60
 /usr/sbin/ipconfig waitall
 echo "Network up?"
-/usr/local/bin/python3 alarm.py -d3 -c mini.json
+/usr/local/bin/python3 alarm.py -d2 -c mini.json
 ```
 #### Quick Test
 we want to test our typing skills. `cd ../` and then 
 `./mqtt-alarm/mqtt-alarm.sh` or `./mqtt-alarm/iot-alarm.sh`
 you'll get some startup info and ending with `Subscribing:  0` and it waits
 for the MQTT server to send something. Control-C. It's working well enough
-for now. If you have MQTT-Explorer installed -  you should, then you can look
+for now. If you have MQTT-Explorer installed and you should, then you can look
 at the MQTT structure you just created. 
 
-We know it runs. Now the hard part. get back to our files. `cd mqtt-alarm`
+We know it runs. Now we want to load at boot time. Go back into the directory
+`cd mqtt-alarm`
 
 #### Load the daemon
-There is no way around this. It's likely there ares mistake, somewhere. Finding
+There is no way around this. It's likely there are mistake, somewhere. Finding
 the damn log files and figuring out what is wrong is not easy. 
-##### systemd
+
+##### Linux systemd
 On Linux we copy the `hubitat-alarm.service` file where systemd can find it. Then
 we tell systemd to enable it and to run it. First we need that file hubitat-alarm.service:
 ```
@@ -127,20 +131,86 @@ cp hubitat-alarm.service /etc/systemd/system
 systemctl enable hubitat-alarm
 systemctl start hubitat-alarm
 ```
-See if it is running. `ps ax | grep hubitat`. or use journalctl
-Not running?  
+See if it is running: `ps ax | grep hubitat`. Or use journalctl to look
+at the log or /var/log/syslog. You should reboot and insure that the alarm
+code is running.
 
-##### launchctl
+##### OSX launchctl
+OSX can be really picky about startup. On the bright side, /usr/local/share
+isn't owned by root or wheel.  We use an iot-alarm.plist:
+```sh
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+   <key>Label</key>
+   <string>com.mvmanila.iot-alarm</string>
+   <key>ProgramArguments</key>
+   <array>
+         <string>/usr/local/share/hubitat/mqtt-alarm/iot-alarm.sh</string>
+   </array>
+   <key>StandardOutPath</key>
+   <string>/var/log/iot-alarm.log</string>
+   <key>StandardErrorPath</key>
+   <string>/var/log/iot-alarm.log</string>
+   <key>KeepAlive</key>
+   <dict>
+        <key>NetworkState</key>
+        <true/>
+   </dict>
+   <key>RunAtLoad</key>
+   <true/>
+</dict>
+</plist>
+```
+That should wait for the network to be up and running before attempting
+to run the script. Should, but doesn't. Notice the 60 second delay in the
+launch script iot-alarm.sh ? Now you know why it's there.
+
+```sh
+sudo cp iot-alarm.plist /Library/LaunchDaemons/
+sudo launchctl load iot-alarm.plist
+```
+Do `ps ax | grep alarm` to see if the alarm code is running. If it isn't
+you'll have to correct paths and or permissions. Make sure you are sudo root
+
+Reboot and make sure it is running after that. Remember that one minute
+timer it might still be waiting. You'll see two lines from the ps|grep
+```sh
+   78   ??  Ss     0:00.01 /bin/bash /usr/local/share/hubitat/mqtt-alarm/iot-alarm.sh
+  692   ??  S      0:00.14 /usr/local/Cellar/python/3.7.5/Frameworks/Python.framework/Versions/3.7/Resources/Python.app/Contents/MacOS/Python alarm.py -d2 -c mini.json
+```
 #### Hubitat Driver
-Install the groovy driver. 
-### Test
-test.
-reboot, test again
+
+Download/Copy the [driver source from ](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-alarm.groovy)
+In Hubitat, in the Drivers page, add a new divers. Paster the code and save.
+
+Select the devices link and create a new device. Select MQTT-Alarm from way down at the end
+in the user drivers selection. Give the device a name. Save. You'll get a page to setup the driver.
+
+It's a good idea to put the Hubitat Log in another tab. 
+
+In the Prefererences section you need to specifiy the MQTT server IP address. In the Topic to Publish
+enter  "homie/homie_device" where homie_device is the name from your json file. 
+
+Select the voice you want in the dropdown list. Save preferences. In the log you should see
+a Connected message. 
+
+### Test and Usage
+
+In the Speak button, enter a phrase and press the button. You should hear the phrase spoken.
+In the Device Notification button, you can also enter a phrase and press the button. The phrase will have some 
+extra emphasis added compared to speak() The device should be usable bu Hubitat where ever such devices are usable.
+
+Remember - you're playing a YouTube video when the speech arrives It will mix in. It is
+impossible / impractical to do a pause. 
 ### V2
 Version 2, should it appear, could allow for siren and chime sounds. These
-mp3 files would have to located and installed by the user and entries made in
+mp3 files would have to be located and installed by the user and entries made in
 the json file. 
+
 ### Additional thoughts
-Yes, you could have one 'alarm' device in Hubitat and MQTT and bronco.json
-and mini.json could specify the same device name and topic. There are few good
-reasons to do that. Just make sure the client names are unique. 
+Yes, you could have one 'alarm' device in Hubitat and two more more Linux/OSX 'devices'
+listening on one topic. There are few good
+reasons to do that. Just make sure all the MQTT client names are unique. If not unique, you'll
+need to know how `ps` and `kill 9` works.

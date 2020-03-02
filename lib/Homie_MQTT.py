@@ -31,6 +31,7 @@ class Homie_MQTT:
     if rc != mqtt.MQTT_ERR_SUCCESS:
         print("network missing?")
         exit()
+    self.client.loop_start()
       
 
     # short cuts to stuff we really care about
@@ -91,7 +92,7 @@ class Homie_MQTT:
     return self.mqtt_connected
 
   def on_connect(self, client, userdata, flags, rc):
-    print("Subscribing: ", rc)
+    print("Subscribing: ", type(rc), rc)
     if rc == 0:
       print("Connecting to %s" % self.mqtt_server_ip)
       rc,_ = self.client.subscribe(self.hurl_sub)

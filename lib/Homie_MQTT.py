@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import paho.mqtt.client as mqtt
-import sys
+import sys, traceback
 import json
 
 from datetime import datetime
@@ -10,11 +10,11 @@ import time
 
 class Homie_MQTT:
 
-  def __init__(self, settings, playCb, alarmCb):
+  def __init__(self, settings, playCb, chimeCb):
     self.settings = settings
     self.log = settings.log
     self.playCb = playCb
-    self.alarmCb = alarmCb
+    self.chimeCb = chimeCb
   
     # init server connection
     self.client = mqtt.Client(settings.mqtt_client_name, False)
@@ -22,88 +22,112 @@ class Homie_MQTT:
     hdevice = self.hdevice = self.settings.homie_device  # "device_name"
     hlname = self.hlname = self.settings.homie_name     # "Display Name"
     # beware async timing with on_connect
-    self.client.loop_start()
+    #self.client.loop_start()
     self.client.on_connect = self.on_connect
     self.client.on_subscribe = self.on_subscribe
     self.client.on_message = self.on_message
     self.client.on_disconnect = self.on_disconnect
     rc = self.client.connect(settings.mqtt_server, settings.mqtt_port)
     if rc != mqtt.MQTT_ERR_SUCCESS:
-        print("network missing?")
+        self.log.warn("network missing?")
         exit()
     self.client.loop_start()
       
-
     # short cuts to stuff we really care about
     self.hurl_sub = "homie/"+hdevice+"/player/url/set"
     self.state_pub = "homie/"+hdevice+"/$state"
+    self.chime_sub = "homie/"+hdevice+"/chime/sound/set"
 
-    print("Homie_MQTT __init__")
+    self.log.debug("Homie_MQTT __init__")
     self.create_topics(hdevice, hlname)
     
+    rc,_ = self.client.subscribe(self.hurl_sub)
+    if rc != mqtt.MQTT_ERR_SUCCESS:
+      self.log.warn("Subscribe failed: %d" %rc)
+    else:
+      self.log.debug("Init() Subscribed to %s" % self.hurl_sub)
+      
+    rc,_ = self.client.subscribe(self.chime_sub)
+    if rc != mqtt.MQTT_ERR_SUCCESS:
+      self.log.warn("Subscribe failed: %d" %rc)
+    else:
+      self.log.debug("Init() Subscribed to %s" % self.chime_sub)
+     
   def create_topics(self, hdevice, hlname):
-    print("Begin topic creation")
-    mqos = 0
+    self.log.debug("Begin topic creation")
     # create topic structure at server - these are retained! 
     #self.client.publish("homie/"+hdevice+"/$homie", "3.0.1", mqos, retain=True)
     self.publish_structure("homie/"+hdevice+"/$homie", "3.0.1")
-    self.client.publish("homie/"+hdevice+"/$name", hlname, mqos, retain=True)
+    self.publish_structure("homie/"+hdevice+"/$name", hlname)
     self.publish_structure(self.state_pub, "ready")
-    self.client.publish("homie/"+hdevice+"/$mac", self.settings.macAddr, True)
-    self.client.publish("homie/"+hdevice+"/$localip", self.settings.our_IP, mqos, True)
+    self.publish_structure("homie/"+hdevice+"/$mac", self.settings.macAddr)
+    self.publish_structure("homie/"+hdevice+"/$localip", self.settings.our_IP)
     # could have two nodes, player and alarm
-    self.client.publish("homie/"+hdevice+"/$nodes", "player", mqos, True)
+    self.publish_structure("homie/"+hdevice+"/$nodes", "player,chime")
     
-    # motionsensor node
-    self.client.publish("homie/"+hdevice+"/player/$name", hlname, mqos, True)
-    self.client.publish("homie/"+hdevice+"/player/$type", "audiosink", mqos, True)
-    self.client.publish("homie/"+hdevice+"/player/$properties","url", mqos, True)
-    # Property of 'motion'
-    self.client.publish("homie/"+hdevice+"/player/url/$name", hlname, mqos, True)
-    self.client.publish("homie/"+hdevice+"/player/url/$datatype", "string", mqos, True)
-    self.client.publish("homie/"+hdevice+"/player/url/$settable", "false", mqos, True)
-    self.client.publish("homie/"+hdevice+"/player/url/$retained", "true", mqos, True)
+    # player node
+    self.publish_structure("homie/"+hdevice+"/player/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/player/$type", "audiosink")
+    self.publish_structure("homie/"+hdevice+"/player/$properties","url")
+    # url Property of 'play'
+    self.publish_structure("homie/"+hdevice+"/player/url/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/player/url/$datatype", "string")
+    self.publish_structure("homie/"+hdevice+"/player/url/$settable", "false")
+    self.publish_structure("homie/"+hdevice+"/player/url/$retained", "true")
+
+    # chime node
+    self.publish_structure("homie/"+hdevice+"/chime/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/chime/$type", "audiosink")
+    self.publish_structure("homie/"+hdevice+"/chime/$properties","sound")
+    # sound Property of 'chime'
+    self.publish_structure("homie/"+hdevice+"/chime/sound/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/chime/sound/$datatype", "string")
+    self.publish_structure("homie/"+hdevice+"/chime/sound/$settable", "false")
+    self.publish_structure("homie/"+hdevice+"/chime/sound/$retained", "true")
    # Done with structure. 
 
-    print("homie topics created")
+    self.log.debug("homie topics created")
     # nothing else to publish 
     
   def publish_structure(self, topic, payload):
     self.client.publish(topic, payload, qos=1, retain=True)
     
   def on_subscribe(self, client, userdata, mid, granted_qos):
-    print("Subscribed to %s" % self.hurl_sub)
+    self.log.debug("Subscribed to %s" % self.hurl_sub)
 
   def on_message(self, client, userdata, message):
     global settings
     topic = message.topic
     payload = str(message.payload.decode("utf-8"))
-    print("on_message ", topic, " ", payload)
+    self.log.debug("on_message %s %s" % (topic, payload))
     try:
       if (topic == self.hurl_sub):
         self.playCb(payload)
+      elif topic == self.chime_sub:
+        self.chimeCb(payload)
       else:
-        print("on_message() unknown command ", message)
+        self.log.debug("on_message() unknown command %s" % message)
     except:
-      print("on_message error:", sys.exc_info()[0])
+      traceback.print_exc()
+      #self.log.error("on_message error: %s" % sys.exc_info()[0])
 
     
   def isConnected(self):
     return self.mqtt_connected
 
   def on_connect(self, client, userdata, flags, rc):
-    print("Subscribing: ", type(rc), rc)
+    self.log.debug("Subscribing: %s %d" (type(rc), rc))
     if rc == 0:
-      print("Connecting to %s" % self.mqtt_server_ip)
+      self.log.debug("Connecting to %s" % self.mqtt_server_ip)
       rc,_ = self.client.subscribe(self.hurl_sub)
       if rc != mqtt.MQTT_ERR_SUCCESS:
-        print("Subscribe failed: ", rc)
+        self.log.debug("Subscribe failed: ", rc)
       else:
-        print("Subscribed to %s" % self.hurl_sub)
+        self.log.debug("Subscribed to %s" % self.hurl_sub)
         self.mqtt_connected = True
     else:
-      print("Failed to connect:", rc)
-    print("leaving on_connect")
+      self.log.debug("Failed to connect: %d" %rc)
+    self.log.debug("leaving on_connect")
        
   def on_disconnect(self, client, userdata, rc):
     self.mqtt_connected = False

@@ -2,20 +2,21 @@
 import paho.mqtt.client as mqtt
 import sys, traceback
 import json
-
 from datetime import datetime
-import time,threading, sched
+from threading import Thread
+import time
 
 import time
 
 class Homie_MQTT:
 
-  def __init__(self, settings, playCb, chimeCb):
+  def __init__(self, settings, playCb, chimeCb, sirenCb, strobeCb):
     self.settings = settings
     self.log = settings.log
     self.playCb = playCb
     self.chimeCb = chimeCb
-  
+    self.sirenCb = sirenCb
+    self.strobeCb = strobeCb
     # init server connection
     self.client = mqtt.Client(settings.mqtt_client_name, False)
     #self.client.max_queued_messages_set(3)
@@ -36,22 +37,19 @@ class Homie_MQTT:
     # short cuts to stuff we really care about
     self.hurl_sub = "homie/"+hdevice+"/player/url/set"
     self.state_pub = "homie/"+hdevice+"/$state"
-    self.chime_sub = "homie/"+hdevice+"/chime/sound/set"
+    self.hchime_sub = "homie/"+hdevice+"/chime/state/set"
+    self.hsiren_sub = "homie/"+hdevice+"/siren/state/set"
+    self.hstrobe_sub = "homie/"+hdevice+"/strobe/state/set"
 
     self.log.debug("Homie_MQTT __init__")
     self.create_topics(hdevice, hlname)
-    
-    rc,_ = self.client.subscribe(self.hurl_sub)
-    if rc != mqtt.MQTT_ERR_SUCCESS:
-      self.log.warn("Subscribe failed: %d" %rc)
-    else:
-      self.log.debug("Init() Subscribed to %s" % self.hurl_sub)
+    for sub in [self.hurl_sub, self.hchime_sub, self.hsiren_sub, self.hstrobe_sub]:    
+      rc,_ = self.client.subscribe(sub)
+      if rc != mqtt.MQTT_ERR_SUCCESS:
+        self.log.warn("Subscribe failed: %d" %rc)
+      else:
+        self.log.debug("Init() Subscribed to %s" % sub)
       
-    rc,_ = self.client.subscribe(self.chime_sub)
-    if rc != mqtt.MQTT_ERR_SUCCESS:
-      self.log.warn("Subscribe failed: %d" %rc)
-    else:
-      self.log.debug("Init() Subscribed to %s" % self.chime_sub)
      
   def create_topics(self, hdevice, hlname):
     self.log.debug("Begin topic creation")
@@ -63,7 +61,7 @@ class Homie_MQTT:
     self.publish_structure("homie/"+hdevice+"/$mac", self.settings.macAddr)
     self.publish_structure("homie/"+hdevice+"/$localip", self.settings.our_IP)
     # could have two nodes, player and alarm
-    self.publish_structure("homie/"+hdevice+"/$nodes", "player,chime")
+    self.publish_structure("homie/"+hdevice+"/$nodes", "player,chime,siren,strobe")
     
     # player node
     self.publish_structure("homie/"+hdevice+"/player/$name", hlname)
@@ -77,13 +75,33 @@ class Homie_MQTT:
 
     # chime node
     self.publish_structure("homie/"+hdevice+"/chime/$name", hlname)
-    self.publish_structure("homie/"+hdevice+"/chime/$type", "audiosink")
+    self.publish_structure("homie/"+hdevice+"/chime/$type", "chime")
     self.publish_structure("homie/"+hdevice+"/chime/$properties","sound")
-    # sound Property of 'chime'
-    self.publish_structure("homie/"+hdevice+"/chime/sound/$name", hlname)
-    self.publish_structure("homie/"+hdevice+"/chime/sound/$datatype", "string")
-    self.publish_structure("homie/"+hdevice+"/chime/sound/$settable", "false")
-    self.publish_structure("homie/"+hdevice+"/chime/sound/$retained", "true")
+    # state Property of 'chime'
+    self.publish_structure("homie/"+hdevice+"/chime/state/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/chime/state/$datatype", "string")
+    self.publish_structure("homie/"+hdevice+"/chime/state/$settable", "false")
+    self.publish_structure("homie/"+hdevice+"/chime/state/$retained", "true")
+    
+    # siren node
+    self.publish_structure("homie/"+hdevice+"/siren/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/siren/$type", "siren")
+    self.publish_structure("homie/"+hdevice+"/siren/$properties","sound")
+    # state Property of 'siren'
+    self.publish_structure("homie/"+hdevice+"/siren/state/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/siren/state/$datatype", "string")
+    self.publish_structure("homie/"+hdevice+"/siren/state/$settable", "false")
+    self.publish_structure("homie/"+hdevice+"/siren/state/$retained", "true")
+    
+    # strobe node
+    self.publish_structure("homie/"+hdevice+"/strobe/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/strobe/$type", "strobe")
+    self.publish_structure("homie/"+hdevice+"/strobe/$properties","sound")
+    # state Property of 'siren'
+    self.publish_structure("homie/"+hdevice+"/strobe/state/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/strobe/state/$datatype", "string")
+    self.publish_structure("homie/"+hdevice+"/strobe/state/$settable", "false")
+    self.publish_structure("homie/"+hdevice+"/strobe/state/$retained", "true")
    # Done with structure. 
 
     self.log.debug("homie topics created")
@@ -102,14 +120,25 @@ class Homie_MQTT:
     self.log.debug("on_message %s %s" % (topic, payload))
     try:
       if (topic == self.hurl_sub):
-        self.playCb(payload)
-      elif topic == self.chime_sub:
-        self.chimeCb(payload)
+        ply_thr = Thread(target=self.playCb, args=(payload,))
+        ply_thr.start()
+        #self.playCb(payload)
+      elif topic == self.hchime_sub:
+        chime_thr = Thread(target=self.chimeCb, args=(payload,))
+        chime_thr.start()
+        #self.chimeCb(payload)
+      elif topic == self.hsiren_sub:
+        siren_thr = Thread(target=self.sirenCb, args=(payload,))
+        siren_thr.start()
+        #self.sirenCb(payload)
+      elif topic == self.hstrobe_sub:
+        strobe_thr = Thread(target=self.strobeCb, args=(payload,))
+        strobe_thr.start()
+        #self.strobeCb(payload)
       else:
-        self.log.debug("on_message() unknown command %s" % message)
+        self.log.debug(f"on_message() unknown command {topic} {payload}")
     except:
       traceback.print_exc()
-      #self.log.error("on_message error: %s" % sys.exc_info()[0])
 
     
   def isConnected(self):

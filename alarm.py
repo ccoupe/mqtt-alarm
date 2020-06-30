@@ -13,6 +13,7 @@ import platform
 from subprocess import Popen
 from lib.Settings import Settings
 from lib.Homie_MQTT import Homie_MQTT
+from lib.Audio import AudioDev
 import urllib.request
 from playsound import playsound
 import logging
@@ -25,159 +26,76 @@ hmqtt = None
 debug_level = 1
 isPi = False
 applog = None
-'''
+audiodev = None
+
+play_mp3 = False
+player_obj = None
+
+def mp3_player(fp):
+  global player_obj, applog, audiodev
+  cmd = f'{audiodev.play_mp3_cmd} {fp}'
+  player_obj = Popen('exec ' + cmd, shell=True)
+  player_obj.wait()
+
+# Restore volume if it was changed
+def player_reset():
+  global settings, applog
+  if settings.player_vol != settings.player_vol_default:
+    applog.info(f'reset player vol to {settings.player_vol_default}')
+    settings.player_vol = settings.player_vol_default
+    audiodev.set_volume(settings.player_vol_default)
+
 def playUrl(url):
-  global hmqtt, isPi, applog
-  #log(url)
-  applog.info("playUrl: %s" % url)
-  if True:
+  global hmqtt, audiodev, applog, settings, player_mp3, player_obj
+  applog.info(f'playUrl: {url}')
+  if url == 'off':
+    if player_mp3 != True:
+      return
+    player_mp3 = False
+    applog.info("killing tts")
+    player_obj.terminate()
+    player_reset()
+    hmqtt.set_status("ready")
+  else:
     try:
       urllib.request.urlretrieve(url, "tmp.mp3")
     except:
-      applog.warn("Failed download")
-    url = "tmp.mp3"
-  #synchronous playback.
-  hmqtt.set_status("busy")
-  hmqtt.client.loop()
-  if isPi:
-    os.system('mpg123 -q --no-control tmp.mp3')
-  else:
-    playsound(url)
-  hmqtt.set_status("ready")
-  hmqtt.client.loop()
-
-
-def playChime(msg):
-  global hmqtt, isPi, applog
-  hmqtt.set_status("busy")
-  hmqtt.client.loop()
-  if msg != 'stop':
-    # parse name out of msg ex: '11 - Enjoy'
-    flds = msg.split('-')
-    num = int(flds[0].strip())
-    nm = flds[1].strip()
-    ext = '.wav'
-    if num >= 10: ext = '.mp3'
-    applog.info(f'asked for {msg} => chimes/{nm}{ext}')
-    if isPi:
-      if ext == '.wav':
-        os.system(f'aplay chimes/{nm}{ext}')
-      else:
-        os.system(f'mpg123 -q --no-control chimes/{nm}{ext}')
-    else:
-      playsound(f'chimes/{nm}{ext}')
-  # stop doesn't work/do anything
-  hmqtt.set_status("ready")
-  hmqtt.client.loop()
-'''
-'''
-playSiren = False
-sirenThread = None
-def siren_loop(fn):
-  global playSiren, isPi, hmqtt, applog
-  applog.debug("in thread, playing")
-  while True:
-    if playSiren == False:
-      break
-    if isPi:
-      os.system(f'mpg123 -q --no-control chimes/{fn}')
-    else:
-      playsound(f'chimes/{fn}')
-
-def sirenCb(msg):
-  global applog, isPi, hmqtt, playSiren, sirenThread
-  if msg == 'off':
-    playSiren = False
-    hmqtt.set_status("ready")
-    applog.info("about to join")
-    sirenThread.join()
-  else:
-    if msg == 'on':
-      fn = 'Siren.mp3'
-    else:
-      fn = msg
-    applog.info(f'play siren: {fn}')
+      applog.warn(f"Failed download of {url}")
     hmqtt.set_status("busy")
-    playSiren = True
-    sirenThread = Thread(target=siren_loop, args=(fn,))
-    sirenThread.start()
-    
-
-play_chime = False
-chime_thread = None
-def chime_single(fn):
-  global play_chime, isPi, hmqtt, applog
-  applog.debug(f"in thread, playing {fn}")
-  if isPi:
-    os.system(f'mpg123 -q --no-control chimes/{fn}')
-  else:
-    os.system(f'mpg123 -q --no-control chimes/{fn}')
-    #playsound(f'chimes/{fn}')
-
-def chimeCb(msg):
-  if msg == 'off':
-    play_chime = False
+    # change the volume?
+    if settings.player_vol != settings.player_vol_default:
+      applog.info(f'set player vol to {settings.player_vol}')
+      audiodev.set_volume(settings.player_vol)
+    player_mp3 = True
+    mp3_player('tmp.mp3')
+    player_reset()
     hmqtt.set_status("ready")
-    applog.info("skipping join")
-    #chime_thread.join()
-  else:
-    flds = msg.split('-')
-    num = int(flds[0].strip())
-    nm = flds[1].strip()
-    fn = nm + '.mp3'
-    applog.info(f'play chime: {fn}')
-    hmqtt.set_status("busy")
-    play_chime = True
-    chime_thread = Thread(target=chime_single, args=(fn,))
-    chime_thread.start()
-
-  
-    
-# TODO: order Lasers with rotating/pan motors. ;-)       
-def strobeCb(msg):
-  global applog, isPi, hmqtt
-  applog.info(f'missing lasers for strobe: {msg}')
-'''
- 
-
-def playUrl(url):
-  global hmqtt, isDarwin, applog
-  applog.info("playUrl: %s" % url)
-  if True:
-    try:
-      urllib.request.urlretrieve(url, "tmp.mp3")
-    except:
-      applog.warn("Failed download")
-    url = "tmp.mp3"
-  #synchronous playback
-  hmqtt.set_status("busy")
-  if isDarwin:
-    os.system("afplay tmp.mp3")
-  else:
-    os.system('mpg123 -q --no-control tmp.mp3')
-  hmqtt.set_status("ready")
-  #hmqtt.client.loop()
+    applog.info('tts finished')
   
 # in order to kill a subprocess running mpg123 (in this case)
-# we need a Popen object. I want a Shell too. 
+# we need a Popen object. I want the Shell too. 
 playSiren = False
-sirenThread = None
 siren_obj = None
 
 def siren_loop(fn):
   global playSiren, isDarwin, hmqtt, applog, siren_obj
+  cmd = f'{audiodev.play_mp3_cmd} sirens/{fn}'
   while True:
     if playSiren == False:
       break
-    if isDarwin:
-      cmd = f'afplay chimes/{fn}'
-    else:
-      cmd = f'mpg123 -q --no-control chimes/{fn}'
     siren_obj = Popen('exec ' + cmd, shell=True)
     siren_obj.wait()
+    
+# Restore volume if it was changed
+def siren_reset():
+  global settings, applog
+  if settings.siren_vol != settings.siren_vol_default:
+    applog.info(f'reset siren vol to {settings.siren_vol_default}')
+    settings.siren_vol = settings.siren_vol_default
+    audiodev.set_volume(settings.siren_vol_default)
 
 def sirenCb(msg):
-  global applog, isPi, hmqtt, playSiren, sirenThread, siren_obj
+  global applog, hmqtt, playSiren, siren_obj
   if msg == 'off':
     if playSiren == False:
       return
@@ -185,7 +103,11 @@ def sirenCb(msg):
     hmqtt.set_status("ready")
     applog.info("killing siren")
     siren_obj.terminate()
+    siren_reset()
   else:
+    if settings.siren_vol != settings.siren_vol_default:
+      applog.info(f'set siren vol to {settings.siren_vol}')
+      audiodev.set_volume(settings.siren_vol)
     if msg == 'on':
       fn = 'Siren.mp3'
     else:
@@ -194,33 +116,43 @@ def sirenCb(msg):
     hmqtt.set_status("busy")
     playSiren = True
     siren_loop(fn)
-    #sirenThread = Thread(target=siren_loop, args=(fn,))
-    #sirenThread.start()
+    siren_reset()
+    applog.info('siren finished')
+    hmqtt.set_status("ready")
 
 
 play_chime = False
-#chime_thread = None
 chime_obj = None
 
 def chime_mp3(fp):
-  global chime_obj, applog
-  if isDarwin:
-    cmd = f'afplay {fp}'
-  else:
-    cmd = f'mpg123 -q --no-control {fp}'
+  global chime_obj, applog, audiodev
+  cmd = f'{audiodev.play_mp3_cmd} {fp}'
   chime_obj = Popen('exec ' + cmd, shell=True)
   chime_obj.wait()
 
+# Restore volume if it was changed
+def chime_reset():
+  global settings, applog
+  if settings.chime_vol != settings.chime_vol_default:
+    applog.info(f'reset chime vol to {settings.chime_vol_default}')
+    settings.chime_vol = settings.chime_vol_default
+    audiodev.set_volume(settings.chime_vol_default)
+
 def chimeCb(msg):
-  global applog, _obj, play_chime
+  global applog, chime_obj, play_chime, settings, audiodev
   if msg == 'off':
     if play_chime != True:
       return
     play_chime = False
-    hmqtt.set_status("ready")
     applog.info("killing chime")
     chime_obj.terminate()
+    chime_reset()
+    hmqtt.set_status("ready")
   else:
+    # if volume != volume_default, set new volume, temporary
+    if settings.chime_vol != settings.chime_vol_default:
+      applog.info(f'set chime vol to {settings.chime_vol}')
+      audiodev.set_volume(settings.chime_vol)
     flds = msg.split('-')
     num = int(flds[0].strip())
     nm = flds[1].strip()
@@ -229,6 +161,9 @@ def chimeCb(msg):
     hmqtt.set_status("busy")
     play_chime = True
     chime_mp3(fn)
+    chime_reset()
+    hmqtt.set_status("ready")
+    applog.info('chime finished')
 
 # TODO: order Lasers with rotating/pan motors. ;-)       
 def strobeCb(msg):
@@ -245,7 +180,7 @@ def log(msg, level=2):
   print(logmsg, flush=True)
  
 def main():
-  global isDarwin, settings, hmqtt, applog
+  global isDarwin, settings, hmqtt, applog, audiodev
   # process cmdline arguments
   loglevels = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
   ap = argparse.ArgumentParser()
@@ -263,22 +198,21 @@ def main():
   if args['syslog']:
     applog.setLevel(logging.DEBUG)
     handler = logging.handlers.SysLogHandler(address = '/dev/log')
-    # formatter for syslog (no date/time or appname. Just  msg, lux, luxavg
-    formatter = logging.Formatter('%(name)s-%(levelname)-5s: %(message)-30s')
+    # formatter for syslog (no date/time or appname. Just  msg.
+    formatter = logging.Formatter('%(name)s-%(levelname)-5s: %(message)-40s')
     handler.setFormatter(formatter)
-    #f = LuxLogFilter()
-    #applog.addFilter(f)
     applog.addHandler(handler)
   else:
     logging.basicConfig(level=logging.DEBUG,datefmt="%H:%M:%S",format='%(asctime)s %(levelname)-5s %(message)-40s')
-    #f = LuxLogFilter()
-    #applog.addFilter(f)
+
   
-  isDarwin = (platform.system() == 'Darwin')
   
+  audiodev = AudioDev()
+  isDarwin = audiodev.isDarwin
   settings = Settings(args["conf"], 
-                      None,
+                      audiodev,
                       applog)
+  
   hmqtt = Homie_MQTT(settings, 
                     playUrl,
                     chimeCb,

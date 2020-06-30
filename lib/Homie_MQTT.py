@@ -25,7 +25,7 @@ class Homie_MQTT:
     # beware async timing with on_connect
     #self.client.loop_start()
     self.client.on_connect = self.on_connect
-    self.client.on_subscribe = self.on_subscribe
+    #self.client.on_subscribe = self.on_subscribe
     self.client.on_message = self.on_message
     self.client.on_disconnect = self.on_disconnect
     rc = self.client.connect(settings.mqtt_server, settings.mqtt_port)
@@ -36,14 +36,23 @@ class Homie_MQTT:
       
     # short cuts to stuff we really care about
     self.hurl_sub = "homie/"+hdevice+"/player/url/set"
+    self.hurlvol_sub = "homie/"+hdevice+"/player/volume/set"
     self.state_pub = "homie/"+hdevice+"/$state"
     self.hchime_sub = "homie/"+hdevice+"/chime/state/set"
+    self.hchimevol_sub = "homie/"+hdevice+"/chime/volume/set"
     self.hsiren_sub = "homie/"+hdevice+"/siren/state/set"
+    self.hsirenvol_sub = "homie/"+hdevice+"/siren/volume/set"
     self.hstrobe_sub = "homie/"+hdevice+"/strobe/state/set"
+    
+    # we should publish to:
+    self.hurlvol_pub = "homie/"+hdevice+"/player/volume"
+    self.hchimevol_pub = "homie/"+hdevice+"/chime/volume"
+    self.hsirenvol_pub = "homie/"+hdevice+"/siren/volume"
 
     self.log.debug("Homie_MQTT __init__")
     self.create_topics(hdevice, hlname)
-    for sub in [self.hurl_sub, self.hchime_sub, self.hsiren_sub, self.hstrobe_sub]:    
+    for sub in [self.hurl_sub, self.hchime_sub, self.hsiren_sub, self.hstrobe_sub,
+          self.hurlvol_sub, self.hchimevol_sub, self.hsirenvol_sub]:    
       rc,_ = self.client.subscribe(sub)
       if rc != mqtt.MQTT_ERR_SUCCESS:
         self.log.warn("Subscribe failed: %d" %rc)
@@ -66,32 +75,50 @@ class Homie_MQTT:
     # player node
     self.publish_structure("homie/"+hdevice+"/player/$name", hlname)
     self.publish_structure("homie/"+hdevice+"/player/$type", "audiosink")
-    self.publish_structure("homie/"+hdevice+"/player/$properties","url")
+    self.publish_structure("homie/"+hdevice+"/player/$properties","volume,url")
     # url Property of 'play'
     self.publish_structure("homie/"+hdevice+"/player/url/$name", hlname)
     self.publish_structure("homie/"+hdevice+"/player/url/$datatype", "string")
     self.publish_structure("homie/"+hdevice+"/player/url/$settable", "false")
     self.publish_structure("homie/"+hdevice+"/player/url/$retained", "true")
+    # volume Property of 'play'
+    self.publish_structure("homie/"+hdevice+"/player/volume/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/player/volume/$datatype", "integer")
+    self.publish_structure("homie/"+hdevice+"/player/volume/$format", "0:100")
+    self.publish_structure("homie/"+hdevice+"/player/volume/$settable", "false")
+    self.publish_structure("homie/"+hdevice+"/player/volume/$retained", "true")
 
     # chime node
     self.publish_structure("homie/"+hdevice+"/chime/$name", hlname)
     self.publish_structure("homie/"+hdevice+"/chime/$type", "chime")
-    self.publish_structure("homie/"+hdevice+"/chime/$properties","sound")
+    self.publish_structure("homie/"+hdevice+"/chime/$properties","sound,volume")
     # state Property of 'chime'
     self.publish_structure("homie/"+hdevice+"/chime/state/$name", hlname)
     self.publish_structure("homie/"+hdevice+"/chime/state/$datatype", "string")
     self.publish_structure("homie/"+hdevice+"/chime/state/$settable", "false")
     self.publish_structure("homie/"+hdevice+"/chime/state/$retained", "true")
+    # volume Property of 'chime'
+    self.publish_structure("homie/"+hdevice+"/chime/volume/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/chime/volume/$datatype", "integer")
+    self.publish_structure("homie/"+hdevice+"/chime/volume/$format", "0:100")
+    self.publish_structure("homie/"+hdevice+"/chime/volume/$settable", "false")
+    self.publish_structure("homie/"+hdevice+"/chime/volume/$retained", "true")
     
     # siren node
     self.publish_structure("homie/"+hdevice+"/siren/$name", hlname)
     self.publish_structure("homie/"+hdevice+"/siren/$type", "siren")
-    self.publish_structure("homie/"+hdevice+"/siren/$properties","sound")
+    self.publish_structure("homie/"+hdevice+"/siren/$properties","sound,volume")
     # state Property of 'siren'
     self.publish_structure("homie/"+hdevice+"/siren/state/$name", hlname)
     self.publish_structure("homie/"+hdevice+"/siren/state/$datatype", "string")
     self.publish_structure("homie/"+hdevice+"/siren/state/$settable", "false")
     self.publish_structure("homie/"+hdevice+"/siren/state/$retained", "true")
+    # volume Property of 'siren'
+    self.publish_structure("homie/"+hdevice+"/siren/volume/$name", hlname)
+    self.publish_structure("homie/"+hdevice+"/siren/volume/$datatype", "integer")
+    self.publish_structure("homie/"+hdevice+"/siren/volume/$format", "0:100")
+    self.publish_structure("homie/"+hdevice+"/siren/volume/$settable", "false")
+    self.publish_structure("homie/"+hdevice+"/siren/volume/$retained", "true")
     
     # strobe node
     self.publish_structure("homie/"+hdevice+"/strobe/$name", hlname)
@@ -114,7 +141,7 @@ class Homie_MQTT:
     self.log.debug("Subscribed to %s" % self.hurl_sub)
 
   def on_message(self, client, userdata, message):
-    global settings
+    settings = self.settings
     topic = message.topic
     payload = str(message.payload.decode("utf-8"))
     self.log.debug("on_message %s %s" % (topic, payload))
@@ -122,19 +149,29 @@ class Homie_MQTT:
       if (topic == self.hurl_sub):
         ply_thr = Thread(target=self.playCb, args=(payload,))
         ply_thr.start()
-        #self.playCb(payload)
       elif topic == self.hchime_sub:
         chime_thr = Thread(target=self.chimeCb, args=(payload,))
         chime_thr.start()
-        #self.chimeCb(payload)
       elif topic == self.hsiren_sub:
         siren_thr = Thread(target=self.sirenCb, args=(payload,))
         siren_thr.start()
-        #self.sirenCb(payload)
       elif topic == self.hstrobe_sub:
         strobe_thr = Thread(target=self.strobeCb, args=(payload,))
         strobe_thr.start()
-        #self.strobeCb(payload)
+      elif topic == self.hurlvol_sub:
+        vol = int(payload)
+        settings.player_vol_default = settings.player_vol
+        settings.player_vol = vol
+        self.client.publish(self.hurlvol_pub, payload, qos=1, retain=False)
+      elif topic == self.hchimevol_sub:
+        vol = int(payload)
+        settings.chime_vol_default = settings.chime_vol
+        settings.chime_vol = vol
+        self.client.publish(self.hchimevol_pub, payload, qos=1, retain=False)
+      elif topic == self.hsirenvol_sub:
+        vol = int(payload)
+        settings.siren_vol = vol
+        self.client.publish(self.hsirenvol_pub, payload, qos=1, retain=False)
       else:
         self.log.debug(f"on_message() unknown command {topic} {payload}")
     except:

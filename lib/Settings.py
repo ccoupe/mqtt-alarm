@@ -7,9 +7,9 @@ import sys
 
 class Settings:
 
-  def __init__(self, etcf, varf, log):
+  def __init__(self, etcf, adev, log):
     self.etcfname = etcf
-    self.varfname = varf
+    self.audiodev = adev
     self.log = log
     self.mqtt_server = "192.168.1.7"   # From json
     self.mqtt_port = 1883              # From json
@@ -34,6 +34,13 @@ class Settings:
     self.macAddr = self.macAddr.upper()
     self.load_settings(self.etcfname)
     self.log.info("Settings from %s" % self.etcfname)
+    self.player_vol_default = self.audiodev.sink_volume
+    self.chime_vol_default = self.audiodev.sink_volume
+    self.siren_vol_default = self.audiodev.sink_volume
+    self.player_vol = self.audiodev.sink_volume
+    self.chime_vol = self.audiodev.sink_volume
+    self.siren_vol = self.audiodev.sink_volume
+
     
   def load_settings(self, fn):
     conf = json.load(open(fn))

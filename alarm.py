@@ -15,10 +15,11 @@ from lib.Settings import Settings
 from lib.Homie_MQTT import Homie_MQTT
 from lib.Audio import AudioDev
 import urllib.request
-from playsound import playsound
 import logging
 import logging.handlers
 
+# NOTE: Beware the threading. Player,Chime.Siren are designed to
+# be rentrant so they can be stopped. It's a feature.
 
 # globals
 settings = None
@@ -39,7 +40,7 @@ def mp3_player(fp):
 
 # Restore volume if it was changed
 def player_reset():
-  global settings, applog
+  global settings, applog, audiodev
   if settings.player_vol != settings.player_vol_default:
     applog.info(f'reset player vol to {settings.player_vol_default}')
     settings.player_vol = settings.player_vol_default

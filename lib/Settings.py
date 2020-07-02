@@ -16,6 +16,7 @@ class Settings:
     self.mqtt_client_name = "detection_1"   # From json
     self.homie_device = None            # From json
     self.homie_name = None              # From json
+    self.tmpf = None                    # From json
     # IP and MacAddr are not important (should not be important).
     if sys.platform.startswith('linux'):
       s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -55,6 +56,7 @@ class Settings:
       self.homie_device = conf['homie_device']
     if conf['homie_name']:
       self.homie_name = conf['homie_name']
+    self.tmpf = conf.get('tmpf', '/tmp/hubitat_tts.mp3')
 
 
   def print(self):

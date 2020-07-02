@@ -29,6 +29,7 @@ class AudioDev:
     self.sink_idx = None
     self.sink_volume = None # 0..100
     self.source_dev = None
+    self.broken = False
     self.play_mp3_cmd = ''
     self.play_wav_cmd = ''
     if self.isLinux:
@@ -76,12 +77,12 @@ class AudioDev:
         self.sink_dev = flds[3]
         #print('default', self.sink_dev)
         break
-      '''
-      if ln.startswith('Default source'):
-        flds = ln.split(' ')
-        self.source_dev = flds[3]
-      '''
-    self.sink_volume = self.pulse_getvol()
+    try:
+      self.sink_volume = self.pulse_getvol()
+    except:
+      self.broken = True
+      # running as root may not accesss pulseaudio. Sigh.
+      print('Pulse and root permissions?')
     
   def pulse_getvol(self):
     sinks = {}

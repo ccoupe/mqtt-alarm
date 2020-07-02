@@ -24,7 +24,7 @@ class Homie_MQTT:
     hlname = self.hlname = self.settings.homie_name     # "Display Name"
     # beware async timing with on_connect
     #self.client.loop_start()
-    self.client.on_connect = self.on_connect
+    #self.client.on_connect = self.on_connect
     #self.client.on_subscribe = self.on_subscribe
     self.client.on_message = self.on_message
     self.client.on_disconnect = self.on_disconnect
@@ -160,12 +160,12 @@ class Homie_MQTT:
         strobe_thr.start()
       elif topic == self.hurlvol_sub:
         vol = int(payload)
-        settings.player_vol_default = settings.player_vol
+        #settings.player_vol_default = settings.player_vol
         settings.player_vol = vol
         self.client.publish(self.hurlvol_pub, payload, qos=1, retain=False)
       elif topic == self.hchimevol_sub:
         vol = int(payload)
-        settings.chime_vol_default = settings.chime_vol
+        #settings.chime_vol_default = settings.chime_vol
         settings.chime_vol = vol
         self.client.publish(self.hchimevol_pub, payload, qos=1, retain=False)
       elif topic == self.hsirenvol_sub:

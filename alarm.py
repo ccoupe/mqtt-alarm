@@ -41,7 +41,7 @@ def mp3_player(fp):
 # Restore volume if it was changed
 def player_reset():
   global settings, applog, audiodev
-  if settings.player_vol != settings.player_vol_default:
+  if settings.player_vol != settings.player_vol_default and not audiodev.broken:
     applog.info(f'reset player vol to {settings.player_vol_default}')
     settings.player_vol = settings.player_vol_default
     audiodev.set_volume(settings.player_vol_default)
@@ -59,16 +59,16 @@ def playUrl(url):
     hmqtt.set_status("ready")
   else:
     try:
-      urllib.request.urlretrieve(url, "tmp.mp3")
+      urllib.request.urlretrieve(url, settings.tmpf)
     except:
       applog.warn(f"Failed download of {url}")
     hmqtt.set_status("busy")
     # change the volume?
-    if settings.player_vol != settings.player_vol_default:
+    if settings.player_vol != settings.player_vol_default and not audiodev.broken:
       applog.info(f'set player vol to {settings.player_vol}')
       audiodev.set_volume(settings.player_vol)
     player_mp3 = True
-    mp3_player('tmp.mp3')
+    mp3_player(settings.tmpf)
     player_reset()
     hmqtt.set_status("ready")
     applog.info('tts finished')
@@ -89,14 +89,14 @@ def siren_loop(fn):
     
 # Restore volume if it was changed
 def siren_reset():
-  global settings, applog
-  if settings.siren_vol != settings.siren_vol_default:
+  global settings, applog, audiodev
+  if settings.siren_vol != settings.siren_vol_default and not audiodev.broken:
     applog.info(f'reset siren vol to {settings.siren_vol_default}')
     settings.siren_vol = settings.siren_vol_default
     audiodev.set_volume(settings.siren_vol_default)
 
 def sirenCb(msg):
-  global applog, hmqtt, playSiren, siren_obj
+  global applog, hmqtt, playSiren, siren_obj, audiodev
   if msg == 'off':
     if playSiren == False:
       return
@@ -106,7 +106,7 @@ def sirenCb(msg):
     siren_obj.terminate()
     siren_reset()
   else:
-    if settings.siren_vol != settings.siren_vol_default:
+    if settings.siren_vol != settings.siren_vol_default and not audiodev.broken:
       applog.info(f'set siren vol to {settings.siren_vol}')
       audiodev.set_volume(settings.siren_vol)
     if msg == 'on':
@@ -133,8 +133,8 @@ def chime_mp3(fp):
 
 # Restore volume if it was changed
 def chime_reset():
-  global settings, applog
-  if settings.chime_vol != settings.chime_vol_default:
+  global settings, applog, audiodev
+  if settings.chime_vol != settings.chime_vol_default and not audiodev.broken:
     applog.info(f'reset chime vol to {settings.chime_vol_default}')
     settings.chime_vol = settings.chime_vol_default
     audiodev.set_volume(settings.chime_vol_default)
@@ -151,7 +151,7 @@ def chimeCb(msg):
     hmqtt.set_status("ready")
   else:
     # if volume != volume_default, set new volume, temporary
-    if settings.chime_vol != settings.chime_vol_default:
+    if settings.chime_vol != settings.chime_vol_default and not audiodev.broken:
       applog.info(f'set chime vol to {settings.chime_vol}')
       audiodev.set_volume(settings.chime_vol)
     flds = msg.split('-')

@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /usr/local/share/hubitat/mqttalarm
+cd /usr/local/share/hubitat/mqtt-alarm
 sleep 60
 /usr/sbin/ipconfig waitall
 echo "Network up?"

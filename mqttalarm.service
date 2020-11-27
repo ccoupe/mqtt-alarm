@@ -1,9 +1,7 @@
 [Unit]
-# This is for ~/.config/systemd/user
-# systemctl --user enable mqttalarm
-# systemctl --user start mqttalarm
 Description=MQTT Alarm
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 ExecStart=/usr/local/lib/mqttalarm/mqtt-alarm.sh

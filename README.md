@@ -1,17 +1,46 @@
 ## Hubitat MQTT Alarm
-MQTT Alarm is "device" on Linux and/or OSX that plays a TTS mp3 from
-Hubitat. It provides these capabilities: notification, speak.
+### What is it?
+It's a Text to Speech device (TTS) so Hubitat can send text notifications
+and it's spoken thru the audio speakers attached to a Linux or OSX system.
 
-It makes the computer attached speakers available for Hubitat to use for
-notifications and speaking. It is not a media player in Hubitat or HomeAssistant terminolgy.
+It can also be a Chime and a Siren because it can play mp3 files. Or all three.
+
+It is not an easy install because I want it to start when the machine boots
+up so it's a system wide thing and not a user thing. System things are never
+easy.  
+
+It is not a media player in Hubitat or HomeAssistant terminolgy.
+
 Note that the 'sound' is mixed into what ever is playing. This is not ideal but
 pausing all the media players that the user might be running is a formidable task
 (if it could be done - it would be 'muy pesky').
 
-It requires an MQTT server on the network, a hubitat driver MQTT-Alarm,  and
-one of the linux or osx 'devices' provided here. The 'device' listens for an
-mqtt message (the url of an mp3 on the Hubitat hub) and plays it on the
-computers speakers. Simple, if it weren't for those pesky details.
+It requires an MQTT broker on the network. This can be the same Linux box that
+the speakers are attached to or a separate machine. I happen to have a raspberry
+pi4 just to run the Mosquitto MQTT broker and drive my printer and a bunch of other
+fun things. If you think about it a siren or chime runs 24x7 so the linux or mac should
+too and the MQTT broker should as well. It should have a UPS too. Right?
+
+The 'device' listens for an
+mqtt message (the url of an mp3 on the Hubitat hub, for example) and plays it on the
+computers speakers.  When you or an automation on Hubitat send a command to the mqtt broker then the 
+broker notifies the 'device' it has work to do. Simple, if it weren't for those pesky details.  
+
+MQTT may seem confusing. Once you see it you'll see it's not that confusing.
+Using my system 'bronco' as an example. It's Linux machine in my office, running 24x7
+with speakers attached. Mqtt needs a parent device. Mine is 'bronco_play'. Since
+we attempt to be Homie v3 compatible, it's really 'homie/bronco_play' but we don't
+need to deal with that detail. In fact, there are 4 devices. 
+
+1. `homie/bronco_play/siren`
+2. `homie/bronco_play/chimes`
+3. `homie/bronco_play/strobe`
+4. `homie/bronco_play/player`
+
+Strobe is not used. It's there but hubitat can't send to it but if it did, nothing happens.
+Player is the tts device. ALL you need to specify is your choice for 'bronco_play' The
+drivers supply the prefixes and suffices needed. Please, No spaces in your name or punctuation
+beyond hyphen and underscore. 
 
 From the linux or osx perspective the 'device' is a background program, a daemon
 that loads at system startup time. This not the same as User login time, so the
@@ -19,30 +48,49 @@ that loads at system startup time. This not the same as User login time, so the
 in how it's implemented - it runs as root, it uses systemd on Linux and launchd on OSX
 the network must be running when the app is started at boot time. 
 
-There are also MQTT details and protocols to deal with and it's not a simple
-installation.  You need python3 which may not be the default or installed on
-OSX or Linux. That means you need to install it (Homebrew on OSX and possibly Xcode) and that
-is beyond these instructions. You have to edit lots of little files so there is
-plenty of opportunity for typos and misunderstandings. And you'll have to reboot to 
-test that it does load at boot. 
-
-You also need a MQTT server somewhere on your network. I use mosquitto running
-on a Raspberry Pi. The MQTT topics are supposed to be Homie v3 compatible. 
-
 ## Install 
-### Prepare Local system(s)
-Find a place to store the files. I use ~/.hubitat/alarm but /usr/local/share/hubitat/alarm
-might be a better place.  Also be aware that it's really and MQTT device, not a hubitat
-only device. Somethings the names of things don't match that concept. Maybe
-/usr/local/share/mqtt/alarm would be best? We're going to be sudo'd most of the time
+Install means getting the code running on your Linux or OSX system and setting 
+that up. 
+
+It also means getting the groovy drivers installed in your Hubitat and
+if you don't have one, install a MQTT broker.
+
+And it means getting the drivers into Hubitat.
+
+### MQTT
+I'm going to punt on this. It's not hard but there are so many other tutorials on
+how to do that there is no point in my duplicating them.  Mine using Mosquitto on a machine 
+I call `pi4` at 192.168.1.7 
+If you know what `apt install mosquitto_clients` does then you're almost done with this 
+part.
+
+I highly recommend you get [MQTT Explorer from ](http://mqtt-explorer.com/) Pick the appimage
+for Linux - not everybody can run Snaps and not everybody wants to. 
+
+### Hubitat
+Download/Copy the Hubitat driver you want to use 
+1. [Mqtt_tts](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-tts.groovy)
+2. [Mqtt_tts](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-chime.groovy)
+3. [Mqtt_tts](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-siren.groovy)
+
+
+In Hubitat, in the `<> Drivers Code page`, click the New Driver button. Paste the code and save.
+Do not run create a Hubitat device of configure anything else. At this time. We
+have more grunt work before playing with Hubitat. 
+
+### Linux And OSX
+Find a place to store the files. Because it's a 'system' creature then `/usr/local/lib/mqttalarm`
+is a good place.
+
+We're going to be sudo'd most of the time so be careful.
 ```sh
 sudo -sH
-mkdir -p /usr/local/share/hubitat/alarm
-cd  /usr/local/share/hubitat
+mkdir -p /usr/local/lib/mqttalarm
+cd  /usr/local/lib/mqttalarm
 git clone https://github.com/ccoupe/mqtt-alarm.git
 cd mqtt-alarm
 ```
-Notice that everything belongs to root. Not ideal but we live with it. Tha
+Notice that everything belongs to root. Not ideal but we live with it. 
 
 Do a `which python3` . Remember that location. Also remember the ip address 
 of your MQTT server. Mine is 192.168.1.7 so that's what you'll see down below.
@@ -83,7 +131,7 @@ that is available at boot time. The '-H' flag on sudo may be required.
 ```sh
 #!/bin/bash
 cd /usr/local/share/hubitat/mqtt-alarm
-/usr/bin/python3 alarm.py -d2 -c bronco.json
+/usr/bin/python3 alarm.py -s -c bronco.json
 ```
 #### iot-alarm.sh
 ```sh 
@@ -92,21 +140,24 @@ cd /usr/local/share/hubitat/mqtt-alarm
 sleep 60
 /usr/sbin/ipconfig waitall
 echo "Network up?"
-/usr/local/bin/python3 alarm.py -d2 -c mini.json
+/usr/local/bin/python3 alarm.py -s -c mini.json
 ```
+
 #### Quick Test
-we want to test our typing skills. `cd ../` and then 
-`./mqtt-alarm/mqtt-alarm.sh` or `./mqtt-alarm/iot-alarm.sh`
-you'll get some startup info and ending with `Subscribing:  0` and it waits
-for the MQTT server to send something. Control-C. It's working well enough
-for now. If you have MQTT-Explorer installed and you should, then you can look
+Lets launch and make sure the python doesn't stumble out of the gate.
+$ `python3 -c bronco.json`  or `./mqtt-alarm.sh`  Actually you should
+do both. Ctrl-C to quit. 
+
+If you have MQTT-Explorer installed and you should, then you can look
 at the MQTT structure you just created. 
 
-We know it runs. Now we want to load at boot time. Go back into the directory
-`cd mqtt-alarm`
+We know it starts. Start it up again and skip down here to get to the hubitat
+directions.  When its all working then come back for the finale of systemd or
+launchctl. 
+
 
 #### Load the daemon
-There is no way around this. It's likely there are mistake, somewhere. Finding
+There is no way around this. It's likely there are mistakes, somewhere. Finding
 the damn log files and figuring out what is wrong is not easy. 
 
 ##### Linux systemd
@@ -180,37 +231,29 @@ timer it might still be waiting. You'll see two lines from the ps|grep
    78   ??  Ss     0:00.01 /bin/bash /usr/local/share/hubitat/mqtt-alarm/iot-alarm.sh
   692   ??  S      0:00.14 /usr/local/Cellar/python/3.7.5/Frameworks/Python.framework/Versions/3.7/Resources/Python.app/Contents/MacOS/Python alarm.py -d2 -c mini.json
 ```
-#### Hubitat Driver
+### Hubitat
 
-Download/Copy the [driver source from ](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-alarm.groovy)
-In Hubitat, in the Drivers page, add a new divers. Paster the code and save.
+Lets test the TTS text to speech. From the Hubitat Devices page push the 'Add Virtual Device'
+button.
 
-Select the devices link and create a new device. Select MQTT-Alarm from way down at the end
+Select the devices link and create a new device. Maybe Device Name = 'test tts'. Select Mqtt-tts from way down at the end
 in the user drivers selection. Give the device a name. Save. You'll get a page to setup the driver.
 
 It's a good idea to put the Hubitat Log in another tab. 
 
 In the Prefererences section you need to specifiy the MQTT server IP address. In the Topic to Publish
-enter  "homie/homie_device" where homie_device is the name from your json file. 
+enter  "homie_device" where homie_device is the name from your json file. 
 
-Select the voice you want in the dropdown list. Save preferences. In the log you should see
-a Connected message. 
+![TTS-Prefs](https://user-images.githubusercontent.com/222691/110862071-40398880-827c-11eb-9484-73c262ad1f06.png)
 
-### Test and Usage
+Pick a voice and a volume. I suggest 50 for the volume. Do not go too loud until you know. 
+For the first time user, you should enable logging.  Save preferences. In the log you should see a Connected message. 
 
-In the Speak button, enter a phrase and press the button. You should hear the phrase spoken.
-In the Device Notification button, you can also enter a phrase and press the button. The phrase will have some 
-extra emphasis added compared to speak() The device should be usable bu Hubitat where ever such devices are usable.
+![talktome](https://user-images.githubusercontent.com/222691/110863390-d7531000-827d-11eb-801b-49954bdedec0.png)
 
-Remember - you're playing a YouTube video when the speech arrives It will mix in. It is
-impossible / impractical to do a pause. 
-### V2
-Version 2, should it appear, could allow for siren and chime sounds. These
-mp3 files would have to be located and installed by the user and entries made in
-the json file. 
+Under Speak button, enter a phrase and press the button. You should hear the phrase spoken. It can take half second
+for Hubitat and Amazon to get things converted.
 
-### Additional thoughts
-Yes, you could have one 'alarm' device in Hubitat and two more more Linux/OSX 'devices'
-listening on one topic. There are few good
-reasons to do that. Just make sure all the MQTT client names are unique. If not unique, you'll
-need to know how `ps` and `kill 9` works.
+### Chimes
+You can play Chimes with you computer speakers. Look in the /usr/local/lib/chimes 
+### Siren

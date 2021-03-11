@@ -59,7 +59,7 @@ And it means getting the drivers into Hubitat.
 
 ### MQTT
 I'm going to punt on this. It's not hard but there are so many other tutorials on
-how to do that there is no point in my duplicating them.  Mine using Mosquitto on a machine 
+how to do that there is no point in my duplicating them.  I'm using Mosquitto on a machine 
 I call `pi4` at 192.168.1.7 
 If you know what `apt install mosquitto_clients` does then you're almost done with this 
 part.
@@ -70,12 +70,12 @@ for Linux - not everybody can run Snaps and not everybody wants to.
 ### Hubitat
 Download/Copy the Hubitat driver you want to use 
 1. [Mqtt_tts](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-tts.groovy)
-2. [Mqtt_tts](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-chime.groovy)
-3. [Mqtt_tts](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-siren.groovy)
+2. [Mqtt_chime](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-chime.groovy)
+3. [Mqtt_siren](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-siren.groovy)
 
 
 In Hubitat, in the `<> Drivers Code page`, click the New Driver button. Paste the code and save.
-Do not run create a Hubitat device of configure anything else. At this time. We
+Do not run create a Hubitat device or configure anything else. At this time. We
 have more grunt work before playing with Hubitat. 
 
 ### Linux And OSX

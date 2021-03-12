@@ -85,8 +85,8 @@ is a good place.
 We're going to be sudo'd most of the time so be careful.
 ```sh
 sudo -sH
-mkdir -p /usr/local/lib/mqttalarm
-cd  /usr/local/lib/mqttalarm
+mkdir -p /usr/local/lib
+cd  /usr/local/lib
 git clone https://github.com/ccoupe/mqtt-alarm.git
 cd mqtt-alarm
 ```
@@ -254,6 +254,45 @@ For the first time user, you should enable logging.  Save preferences. In the lo
 Under Speak button, enter a phrase and press the button. You should hear the phrase spoken. It can take half second
 for Hubitat and Amazon to get things converted.
 
-### Chimes
-You can play Chimes with you computer speakers. Look in the /usr/local/lib/chimes 
 ### Siren
+You can use your system as a Siren. Just install the Mqtt-Siren.groovy driver and configure
+a device in Hubitat.
+
+In the siren folder is an Siren.mp3. It's played when
+the Hubitat Mqtt-siren.groovy driver is told to play. By pressing the Siren button or the Both button.
+
+![Siren](https://user-images.githubusercontent.com/222691/110872990-0f624f00-828e-11eb-8713-cce0fcb38edd.png)
+
+If that looks more complicated than my simple description, well let me explain. In Hubitat, 'Sirens's have some 
+common features so my Siren has to have them too - even if some features won't work. Strobe doesn't work. Nothing
+dies if you do press the Strobe button. Nothing works either. The volume features do work. You probaby want you siren to
+be louder than the TTS notifications or Chimes. 
+
+Off works. You want to remember that. The siren goes until you turn it off. The siren device follows the rules and can be use just like
+a 'real' one for Hubitat purposes. 
+
+Obviously you can use your own mp3 file to replace the one in sirens/ directory. Just name it
+Siren.mp3. 
+
+### Chimes
+You can play Chimes with your computer speakers. Look in the /usr/local/lib/chimes There are
+canned mp3 sounds. Obviously you could replace the ones there with your choice.  But, you ask how does
+hubitat know which sound to play?  It's a bit tricky and a bit hardcoded. Like Siren, the Hubitat rule for what 
+a Chime can do is what we do and we do it the Hubitat way. For example the 'Beep' button - plays the default chime.
+The default is chosen in the Preferences section. 
+
+![Chimes-Pref](https://user-images.githubusercontent.com/222691/110875092-3c186580-8292-11eb-86cf-7bb26fdbedcd.png)
+
+That shows my default is '3 - Horn' That gets mapped to the chimes/Horn.mp3 file. Makes sense? Not so fast.
+You can also specify a sound number like '1' which maps to chimes/Doorbell.mp3. OK, that sort of makes sense.
+Does 2 - Siren map to chimes/Siren.mp3 ? Yes.  So when your Rule Machine rule plays chime 11, Buckwheat Zydeco
+sings. You got it.  10 and 11 exist because I want those tunes for other purposes. You can replace any of the 
+5 sounds with your own mp3 if you keep the same names. If you want to change the names or add more then you'll have
+to modify the Groovy code and the python code.  There are other schemes that could be employed but those work for
+me. 
+
+### Strobe
+
+I do have a device that can be a strobe but building it is well out of scope for
+this discussion. It involves servos, laser diodes and more raspberry pi's.  And much more
+python. A bit expensive too after you buy a 3D printer.

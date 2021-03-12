@@ -55,9 +55,11 @@ that up.
 It also means getting the groovy drivers installed in your Hubitat and
 if you don't have one, install a MQTT broker.
 
-And it means getting the drivers into Hubitat.
+And it means testing things and then you have make sure it can survive
+a reboot of Your Linux system, hubitat or the Mqtt Broker. That is the hard
+part. 
 
-### MQTT
+### MQTT install
 I'm going to punt on this. It's not hard but there are so many other tutorials on
 how to do that there is no point in my duplicating them.  I'm using Mosquitto on a machine 
 I call `pi4` at 192.168.1.7 
@@ -67,22 +69,23 @@ part.
 I highly recommend you get [MQTT Explorer from ](http://mqtt-explorer.com/) Pick the appimage
 for Linux - not everybody can run Snaps and not everybody wants to. 
 
-### Hubitat
+### Hubitat drivers.
 Download/Copy the Hubitat driver you want to use 
 1. [Mqtt_tts](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-tts.groovy)
 2. [Mqtt_chime](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-chime.groovy)
 3. [Mqtt_siren](https://raw.githubusercontent.com/ccoupe/hubitat/master/mqtt-siren.groovy)
 
 
-In Hubitat, in the `<> Drivers Code page`, click the New Driver button. Paste the code and save.
-Do not run create a Hubitat device or configure anything else. At this time. We
-have more grunt work before playing with Hubitat. 
+In Hubitat, at the `<> Drivers Code` page, click the New Driver button. Paste the code and save.
+Do not create a Hubitat device or configure anything else in Hubitat, at this time. We
+have more grunt work to do before playing with Hubitat. 
 
 ### Linux And OSX
 Find a place to store the files. Because it's a 'system' creature then `/usr/local/lib/mqttalarm`
 is a good place.
 
-We're going to be sudo'd most of the time so be careful.
+We're going to be sudo'd most of the time so be careful. If you don't have it
+you'll need to install command line git and the mpg123 program.
 ```sh
 sudo -sH
 mkdir -p /usr/local/lib
@@ -90,7 +93,7 @@ cd  /usr/local/lib
 git clone https://github.com/ccoupe/mqtt-alarm.git
 cd mqtt-alarm
 ```
-Notice that everything belongs to root. Not ideal but we live with it. 
+Notice that everything belongs to root. Not ideal but we can live with it. 
 
 Do a `which python3` . Remember that location. Also remember the ip address 
 of your MQTT server. Mine is 192.168.1.7 so that's what you'll see down below.
@@ -112,6 +115,7 @@ pip3 install playsound
 Caution: You may have several python3 library locations. We want a python3
 that is available at boot time. The '-H' flag on sudo may be required. 
 #### bronco.json
+```
 {
   "mqtt_server_ip": "192.168.1.7",
   "mqtt_port": 1883,
@@ -119,7 +123,9 @@ that is available at boot time. The '-H' flag on sudo may be required.
   "homie_device": "bronco_play",
   "homie_name": "Bronco Mp3 Play"
 }
+```
 #### mini.json
+```
 {
   "mqtt_server_ip": "192.168.1.7",
   "mqtt_port": 1883,
@@ -127,8 +133,9 @@ that is available at boot time. The '-H' flag on sudo may be required.
   "homie_device": "mini_play",
   "homie_name": "Mac mini Mp3 Play"
 }
+```
 #### mqtt-alarm.sh 
-```sh
+```
 #!/bin/bash
 cd /usr/local/share/hubitat/mqtt-alarm
 /usr/bin/python3 alarm.py -s -c bronco.json
@@ -144,32 +151,32 @@ echo "Network up?"
 ```
 
 #### Quick Test
-Lets launch and make sure the python doesn't stumble out of the gate.
+Lets launch and make sure that python doesn't stumble out of the gate.
 $ `python3 -c bronco.json`  or `./mqtt-alarm.sh`  Actually you should
-do both. Ctrl-C to quit. 
+do both, one after the other. Ctrl-C to quit. 
 
-If you have MQTT-Explorer installed and you should, then you can look
+If you have MQTT-Explorer installed (you should), then you can look
 at the MQTT structure you just created. 
 
-We know it starts. Start it up again and skip down here to get to the hubitat
-directions.  When its all working then come back for the finale of systemd or
-launchctl. 
-
+We know it starts. Start it up again and skip down to the Hubitat
+directions where you can test the device and have some fun. 
+When its all working then come back here for the finale show of systemd or
+launchctl fun.
 
 #### Load the daemon
 There is no way around this. It's likely there are mistakes, somewhere. Finding
 the damn log files and figuring out what is wrong is not easy. 
 
 ##### Linux systemd
-On Linux we copy the `hubitat-alarm.service` file where systemd can find it. Then
-we tell systemd to enable it and to run it. First we need that file hubitat-alarm.service:
+On Linux we copy the `mqttalarm.service` file where systemd can find it. Then
+we tell systemd to enable it and to run it. First we need that file mqttalarm.service:
 ```
 [Unit]
 Description=MQTT Alarm
 After=network-online.target
 
 [Service]
-ExecStart=/usr/local/share/hubitat/mqtt-alarm/mqtt-alarm.sh
+ExecStart=/usr/local/lib/mqttalarm/mqtt-alarm.sh
 Restart=on-abort
 
 [Install]
@@ -178,11 +185,11 @@ WantedBy=multi-user.target
 Of cource you want to use the full path to where the script lives. So edit
 the file. Now copy to where systemd can find it.
 ```
-cp hubitat-alarm.service /etc/systemd/system
-systemctl enable hubitat-alarm
-systemctl start hubitat-alarm
+cp mqttalarm.service /etc/systemd/system
+systemctl enable mqttalarm
+systemctl start mqttalarm
 ```
-See if it is running: `ps ax | grep hubitat`. Or use journalctl to look
+See if it is running: `ps ax | grep mqttalarm`. Or use journalctl to look
 at the log or /var/log/syslog. You should reboot and insure that the alarm
 code is running.
 
@@ -215,7 +222,7 @@ isn't owned by root or wheel.  We use an iot-alarm.plist:
 </plist>
 ```
 That should wait for the network to be up and running before attempting
-to run the script. Should, but doesn't. Notice the 60 second delay in the
+to run the script. IT Should, but it doesn't. Notice the 60 second delay in the
 launch script iot-alarm.sh ? Now you know why it's there.
 
 ```sh

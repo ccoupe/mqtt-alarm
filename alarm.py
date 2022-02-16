@@ -194,7 +194,7 @@ def main():
   args = vars(ap.parse_args())
   
   # logging setup
-  applog = logging.getLogger('mqttplayer')
+  applog = logging.getLogger('mqttalarm')
   #applog.setLevel(args['log'])
   if args['syslog']:
     applog.setLevel(logging.DEBUG)

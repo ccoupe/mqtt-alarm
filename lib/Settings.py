@@ -26,8 +26,13 @@ class Settings:
       # from stackoverflow (of course):
       self.macAddr = ':'.join(("%012x" % get_mac())[i:i+2] for i in range(0, 12, 2))
     elif sys.platform.startswith('darwin'):
-      host_name = socket.gethostname() 
-      self.our_IP = socket.gethostbyname(host_name) 
+      #host_name = socket.gethostname() 
+      #self.our_IP = socket.gethostbyname(host_name) 
+      
+      s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			s.connect(("8.8.8.8", 80))
+			self.our_IP = s.getsockname()[0]
+
       self.macAddr = ':'.join(("%012x" % get_mac())[i:i+2] for i in range(0, 12, 2))
     else:
       self.our_IP = "192.168.1.255"

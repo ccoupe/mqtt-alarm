@@ -18,19 +18,19 @@ pausing all the media players that the user might be running is a formidable tas
 It requires an MQTT broker on the network. This can be the same Linux box that
 the speakers are attached to or a separate machine. I happen to have a raspberry
 pi4 just to run the Mosquitto MQTT broker and drive my printer and a bunch of other
-fun things. If you think about it a siren or chime runs 24x7 so the linux or mac should
+fun things. If you think about it, a siren or chime runs 24x7 so the linux or mac should
 too and the MQTT broker should as well. It should have a UPS too. Right?
 
 The 'device' listens for an
 mqtt message (the url of an mp3 on the Hubitat hub, for example) and plays it on the
-computers speakers.  When you or an automation on Hubitat send a command to the mqtt broker then the 
+computers speakers.  When you or an automation on Hubitat sends a command to the mqtt broker then the 
 broker notifies the 'device' it has work to do. Simple, if it weren't for those pesky details.  
 
 MQTT may seem confusing. Once you see it you'll see it's not that confusing.
-Using my system 'bronco' as an example. It's Linux machine in my office, running 24x7
-with speakers attached. Mqtt needs a parent device. Mine is 'bronco_play'. Since
-we attempt to be Homie v3 compatible, it's really 'homie/bronco_play' but we don't
-need to deal with that detail. In fact, there are 4 devices. 
+Using my system 'bronco' as an example. It is a Linux machine in my office, running 24x7
+with speakers attached. Mqtt needs a parent device name. Mine is 'bronco_play'. Since
+we attempt to be Homie v3 compatible, it's really 'homie/bronco_play;
+In fact, there are 4 devices. 
 
 1. `homie/bronco_play/siren`
 2. `homie/bronco_play/chimes`
@@ -67,7 +67,8 @@ If you know what `apt install mosquitto_clients` does then you're almost done wi
 part.
 
 I highly recommend you get [MQTT Explorer from ](http://mqtt-explorer.com/) Pick the appimage
-for Linux - not everybody can run Snaps and not everybody wants to. 
+for Linux - not everybody can run Snaps and not everybody wants to. You can run Explorer on any
+computer in your networ - it doesn't have to be Linux or a Raspberry pi. 
 
 ### Hubitat drivers.
 Download/Copy the Hubitat driver you want to use 
@@ -77,7 +78,7 @@ Download/Copy the Hubitat driver you want to use
 
 
 In Hubitat, at the `<> Drivers Code` page, click the New Driver button. Paste the code and save.
-Do not create a Hubitat device or configure anything else in Hubitat, at this time. We
+Do not create a Hubitat device or configure anything else in Hubitat at this time. We
 have more grunt work to do before playing with Hubitat. 
 
 ### Linux And OSX
@@ -222,8 +223,11 @@ isn't owned by root or wheel.  We use an iot-alarm.plist:
 </plist>
 ```
 That should wait for the network to be up and running before attempting
-to run the script. IT Should, but it doesn't. Notice the 60 second delay in the
-launch script iot-alarm.sh ? Now you know why it's there.
+to run the script. It Should work. Notice the 60 second delay in the
+launch script? We have to wait for the network to be up. This
+requires secret knowledge on OSX. I don't have that knowledge so this 
+script is going to wait for a minute. This is a long time If you are debugging
+Just so you know.
 
 ```sh
 sudo cp iot-alarm.plist /Library/LaunchDaemons/

@@ -3,15 +3,15 @@
 <plist version="1.0">
 <dict>
    <key>Label</key>
-   <string>com.mvmanila.iot-alarm</string>
+   <string>com.mvmanila.mqttalarm</string>
    <key>ProgramArguments</key>
    <array>
-	 <string>/usr/local/share/hubitat/mqtt-alarm/iot-alarm.sh</string>
+	 <string>/usr/local/lib/mqttalarm/iot-alarm.sh</string>
    </array>
    <key>StandardOutPath</key>
-   <string>/var/log/iot-alarm.log</string>
+   <string>/var/log/mqttalarm.log</string>
    <key>StandardErrorPath</key>
-   <string>/var/log/iot-alarm.log</string>
+   <string>/var/log/mqttalarm.log</string>
    <key>KeepAlive</key>
    <dict>
 	<key>NetworkState</key>
